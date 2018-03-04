@@ -1,7 +1,7 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 // The MIT License (MIT)
 //
-// Copyright (c) 2015 Tim Stair
+// Copyright (c) 2018 Tim Stair
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,8 +27,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
 using System.Xml.Serialization;
+using CardMaker.Card;
 using CardMaker.Data;
 using Support.IO;
+using Support.Util;
 
 namespace CardMaker.XML
 {
@@ -68,6 +70,9 @@ namespace CardMaker.XML
 
         [XmlAttribute]
         public string bordercolor { get; set; }
+
+        [XmlAttribute]
+        public string backgroundcolor { get; set; }
 
         [XmlAttribute]
         public int borderthickness { get; set; }
@@ -111,11 +116,15 @@ namespace CardMaker.XML
         [XmlAttribute]
         public bool keeporiginalsize { get; set; }
 
+        [XmlAttribute]
+        public string tilesize { get; set; }
+
         #endregion
 
         private Color m_colorElement = Color.Black;
         private Color m_colorOutline = Color.Black;
         private Color m_colorBorder = Color.Black;
+        private Color m_colorBackground = CardMakerConstants.NoColor;
         private Font m_fontText;
 
         public override string ToString()
@@ -138,23 +147,25 @@ namespace CardMaker.XML
             height = 40;
             borderthickness = 0;
             outlinethickness = 0;
-            outlinecolor = "000000000";
+            outlinecolor = "0x000000000";
             rotation = 0;
-            bordercolor = "000000000";
+            bordercolor = "0x000000000";
             font = string.Empty;
-            elementcolor = "000000000";
+            elementcolor = "0x000000000";
+            backgroundcolor = "0x00000000";
             type = ElementType.Text.ToString();
             lineheight = 0;
             wordspace = 0;
             autoscalefont = false;
             lockaspect = false;
+            tilesize = string.Empty;
             keeporiginalsize = false;
             variable = string.Empty;
             name = sName;
             opacity = 255;
             enabled = true;
 
-            InitializeCache();
+            InitializeTranslatedFields();
         }
 
         public Color GetElementBorderColor()
@@ -170,6 +181,11 @@ namespace CardMaker.XML
         public Color GetElementOutlineColor()
         {
             return m_colorOutline;
+        }
+
+        public Color GetElementBackgroundColor()
+        {
+            return m_colorBackground;
         }
 
         public Font GetElementFont()
@@ -190,11 +206,12 @@ namespace CardMaker.XML
         /// <summary>
         /// Initializes the cache variables for color and font translation
         /// </summary>
-        public void InitializeCache()
+        public void InitializeTranslatedFields()
         {
             SetElementBorderColor(TranslateColorString(bordercolor));
             SetElementColor(TranslateColorString(elementcolor));
             SetElementOutlineColor(TranslateColorString(outlinecolor));
+            SetElementBackgroundColor(backgroundcolor == null ? Color.FromArgb(0,0,0,0) : TranslateColorString(backgroundcolor));
             m_fontText = !string.IsNullOrEmpty(font)
                 ? TranslateFontString(font)
                 : null;
@@ -204,8 +221,8 @@ namespace CardMaker.XML
         /// Performs a partial deepy copy based on the input element, the name field is left unchanged
         /// </summary>
         /// <param name="zElement">The source element to copy from</param>
-        /// <param name="bInitializeCache">flag indicating whether to reinitialize the cache</param>
-        public void DeepCopy(ProjectLayoutElement zElement, bool bInitializeCache)
+        /// <param name="bInitializeTranslatedFields">flag indicating whether to reinitialize the translated fields</param>
+        public void DeepCopy(ProjectLayoutElement zElement, bool bInitializeTranslatedFields)
         {
             verticalalign = zElement.verticalalign;
             horizontalalign = zElement.horizontalalign;
@@ -220,6 +237,7 @@ namespace CardMaker.XML
             bordercolor = zElement.bordercolor;
             font = zElement.font;
             elementcolor = zElement.elementcolor;
+            backgroundcolor = zElement.backgroundcolor;
             type = zElement.type;
             autoscalefont = zElement.autoscalefont;
             lockaspect = zElement.lockaspect;
@@ -229,10 +247,11 @@ namespace CardMaker.XML
             enabled = zElement.enabled;
             lineheight = zElement.lineheight;
             wordspace = zElement.wordspace;
+            tilesize = zElement.tilesize;
 
-            if (bInitializeCache)
+            if (bInitializeTranslatedFields)
             {
-                InitializeCache();
+                InitializeTranslatedFields();
             }
         }
 
@@ -241,64 +260,66 @@ namespace CardMaker.XML
         /// </summary>
         /// <param name="sColor">The color string to translate</param>
         /// <returns>The color, or Color.Black by default</returns>
-        public static Color TranslateColorString(string sColor)
+        public static Color TranslateColorString(string sColor, int defaultAlpha = 255)
         {
-            sColor = sColor.Trim();
-
-            if (null != sColor)
+            if (string.IsNullOrEmpty(sColor))
             {
-                if (sColor.StartsWith(COLOR_HEX_STR, StringComparison.CurrentCultureIgnoreCase))
-                {
-                    sColor = sColor.Remove(0, 2);
-                }
+                return Color.Black;
+            }
 
-                Color colorByName = Color.FromName(sColor);
-                // no named color will be set this way
-                if (colorByName.A != 0)
-                {
-                    return colorByName;
-                }
+            sColor = sColor.Trim();
+            if (sColor.StartsWith(COLOR_HEX_STR, StringComparison.CurrentCultureIgnoreCase))
+            {
+                sColor = sColor.Remove(0, 2);
+            }
 
-                try
-                {
-                    switch (sColor.Length)
-                    {
-                        case 6: //0xRGB (hex RGB)
-                            return Color.FromArgb(
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(0, 2), System.Globalization.NumberStyles.HexNumber)),
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(2, 2), System.Globalization.NumberStyles.HexNumber)),
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(4, 2), System.Globalization.NumberStyles.HexNumber)));
-                        case 8: //0xRGBA (hex RGBA)
-                            return Color.FromArgb(
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(6, 2), System.Globalization.NumberStyles.HexNumber)),
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(0, 2), System.Globalization.NumberStyles.HexNumber)),
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(2, 2), System.Globalization.NumberStyles.HexNumber)),
-                                Math.Min(255,
-                                    Int32.Parse(sColor.Substring(4, 2), System.Globalization.NumberStyles.HexNumber)));
-                        case 9: //RGB (int RGB)
-                            return Color.FromArgb(
-                                Math.Min(255, Int32.Parse(sColor.Substring(0, 3))),
-                                Math.Min(255, Int32.Parse(sColor.Substring(3, 3))),
-                                Math.Min(255, Int32.Parse(sColor.Substring(6, 3))));
-                        case 12: //RGBA (int RGBA)
-                            return Color.FromArgb(
-                                Math.Min(255, Int32.Parse(sColor.Substring(9, 3))),
-                                Math.Min(255, Int32.Parse(sColor.Substring(0, 3))),
-                                Math.Min(255, Int32.Parse(sColor.Substring(3, 3))),
-                                Math.Min(255, Int32.Parse(sColor.Substring(6, 3))));
-                    }
-                }
-                catch (Exception)
-                {
-                    Logger.AddLogLine("Unsupported color string found: " + sColor);
-                }
+            Color colorByName = Color.FromName(sColor);
+            // no named color will be set this way
+            if (colorByName.A != 0)
+            {
+                return colorByName;
+            }
 
+            try
+            {
+                switch (sColor.Length)
+                {
+                    case 6: //0xRGB (hex RGB)
+                        return Color.FromArgb(
+                            defaultAlpha,
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(0, 2), System.Globalization.NumberStyles.HexNumber)),
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(2, 2), System.Globalization.NumberStyles.HexNumber)),
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(4, 2), System.Globalization.NumberStyles.HexNumber)));
+                    case 8: //0xRGBA (hex RGBA)
+                        return Color.FromArgb(
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(6, 2), System.Globalization.NumberStyles.HexNumber)),
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(0, 2), System.Globalization.NumberStyles.HexNumber)),
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(2, 2), System.Globalization.NumberStyles.HexNumber)),
+                            Math.Min(255,
+                                Int32.Parse(sColor.Substring(4, 2), System.Globalization.NumberStyles.HexNumber)));
+                    case 9: //RGB (int RGB)
+                        return Color.FromArgb(
+                            defaultAlpha,
+                            Math.Min(255, Int32.Parse(sColor.Substring(0, 3))),
+                            Math.Min(255, Int32.Parse(sColor.Substring(3, 3))),
+                            Math.Min(255, Int32.Parse(sColor.Substring(6, 3))));
+                    case 12: //RGBA (int RGBA)
+                        return Color.FromArgb(
+                            Math.Min(255, Int32.Parse(sColor.Substring(9, 3))),
+                            Math.Min(255, Int32.Parse(sColor.Substring(0, 3))),
+                            Math.Min(255, Int32.Parse(sColor.Substring(3, 3))),
+                            Math.Min(255, Int32.Parse(sColor.Substring(6, 3))));
+                }
+            }
+            catch (Exception)
+            {
+                Logger.AddLogLine("Unsupported color string found: " + sColor);
             }
             return Color.Black;
         }
@@ -326,11 +347,13 @@ namespace CardMaker.XML
         {
             var arraySplit = fontString.Split(new char[] { ';' });
             float fFontSize;
-            if (6 != arraySplit.Length || !float.TryParse(arraySplit[1], out fFontSize))
+            if (6 != arraySplit.Length || !ParseUtil.ParseFloat(arraySplit[1], out fFontSize))
             {
                 return null;
             }
-            return new Font(arraySplit[0], float.Parse(arraySplit[1]),
+            return FontLoader.GetFont(
+                arraySplit[0], 
+                fFontSize,
                 (arraySplit[2].Equals("1") ? FontStyle.Bold : FontStyle.Regular) |
                 (arraySplit[3].Equals("1") ? FontStyle.Underline : FontStyle.Regular) |
                 (arraySplit[4].Equals("1") ? FontStyle.Italic : FontStyle.Regular) |
@@ -365,6 +388,16 @@ namespace CardMaker.XML
         {
             outlinecolor = GetElementColorString(zColor);
             m_colorOutline = zColor;
+        }
+
+        /// <summary>
+        /// Sets the outline color and color string
+        /// </summary>
+        /// <param name="zColor">The color to pull the values from</param>
+        public void SetElementBackgroundColor(Color zColor)
+        {
+            backgroundcolor = GetElementColorString(zColor);
+            m_colorBackground = zColor;
         }
 
         /// <summary>

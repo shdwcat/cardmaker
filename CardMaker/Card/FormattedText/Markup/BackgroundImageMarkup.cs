@@ -1,7 +1,7 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 // The MIT License (MIT)
 //
-// Copyright (c) 2015 Tim Stair
+// Copyright (c) 2018 Tim Stair
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using CardMaker.Data;
 using CardMaker.XML;
+using Support.Util;
 
 namespace CardMaker.Card.FormattedText.Markup
 {
@@ -56,11 +57,13 @@ namespace CardMaker.Card.FormattedText.Markup
             {
                 return false;
             }
+
+            StringAlignment = zProcessData.CurrentStringAlignment;
             LineNumber = zProcessData.CurrentLine;
 
             m_sImageFile = arrayComponents[0];
 
-            var zBmp = DrawItem.LoadImageFromCache(m_sImageFile);
+            var zBmp = ImageCache.LoadImageFromCache(m_sImageFile);
 
             m_fXOffset = zProcessData.CurrentXOffset;
             m_fYOffset = zProcessData.CurrentYOffset;
@@ -76,8 +79,8 @@ namespace CardMaker.Card.FormattedText.Markup
                         return true;
                     case 5:
                         {
-                            if (float.TryParse(arrayComponents[1], out m_fXOffset) &&
-                                float.TryParse(arrayComponents[2], out m_fYOffset) &&
+                            if (ParseUtil.ParseFloat(arrayComponents[1], out m_fXOffset) &&
+                                ParseUtil.ParseFloat(arrayComponents[2], out m_fYOffset) &&
                                 int.TryParse(arrayComponents[3], out m_nWidth) &&
                                 int.TryParse(arrayComponents[4], out m_nHeight))
                             {
@@ -100,7 +103,9 @@ namespace CardMaker.Card.FormattedText.Markup
         public override bool Render(ProjectLayoutElement zElement, Graphics zGraphics)
         {
             // already null checked in the ProcessMarkup
-            var zBmp = DrawItem.LoadImageFromCache(m_sImageFile);
+            var zBmp = 255 != zElement.opacity
+                ? ImageCache.LoadCustomImageFromCache(m_sImageFile, zElement)
+                : ImageCache.LoadImageFromCache(m_sImageFile);
             zGraphics.DrawImage(zBmp, TargetRect.X + m_fXOffset, TargetRect.Y + m_fYOffset, m_nWidth, m_nHeight);
 
             if (CardMakerInstance.DrawFormattedTextBorder)

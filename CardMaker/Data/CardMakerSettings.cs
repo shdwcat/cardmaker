@@ -1,7 +1,7 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 // The MIT License (MIT)
 //
-// Copyright (c) 2015 Tim Stair
+// Copyright (c) 2018 Tim Stair
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +25,7 @@
 using System.Globalization;
 using CardMaker.Events.Managers;
 using Support.IO;
+using Support.Util;
 
 namespace CardMaker.Data
 {
@@ -54,12 +55,25 @@ namespace CardMaker.Data
             }
         }
 
+        public static MeasurementUnit PrintPageMeasurementUnit
+        {
+            get
+            {
+                MeasurementUnit eMeasurementUnit;
+                MeasurementUnit.TryParse(
+                    s_zIniManager.GetValue(IniSettings.PrintPageMeasurementUnit,
+                        ((int) MeasurementUnit.Inch).ToString()), out eMeasurementUnit);
+                return eMeasurementUnit;
+            }
+            set { s_zIniManager.SetValue(IniSettings.PrintPageMeasurementUnit, ((int)value).ToString()); }
+        }
+
         public static decimal PrintPageWidth
         {
             get
             {
                 decimal dVal;
-                if (decimal.TryParse(s_zIniManager.GetValue(IniSettings.PrintPageWidth, "8.5"), out dVal))
+                if (ParseUtil.ParseDecimal(s_zIniManager.GetValue(IniSettings.PrintPageWidth, "8.5"), out dVal))
                 {
                     return dVal;
                 }
@@ -73,7 +87,7 @@ namespace CardMaker.Data
             get
             {
                 decimal dVal;
-                if (decimal.TryParse(s_zIniManager.GetValue(IniSettings.PrintPageHeight, "11"), out dVal))
+                if (ParseUtil.ParseDecimal(s_zIniManager.GetValue(IniSettings.PrintPageHeight, "11"), out dVal))
                 {
                     return dVal;
                 }
@@ -87,7 +101,7 @@ namespace CardMaker.Data
             get
             {
                 decimal dVal;
-                if (decimal.TryParse(s_zIniManager.GetValue(IniSettings.PrintPageHorizontalMargin, "0.5"), out dVal))
+                if (ParseUtil.ParseDecimal(s_zIniManager.GetValue(IniSettings.PrintPageHorizontalMargin, "0.5"), out dVal))
                 {
                     return dVal;
                 }
@@ -101,7 +115,7 @@ namespace CardMaker.Data
             get
             {
                 decimal dVal;
-                if (decimal.TryParse(s_zIniManager.GetValue(IniSettings.PrintPageVerticalMargin, "0.25"), out dVal))
+                if (ParseUtil.ParseDecimal(s_zIniManager.GetValue(IniSettings.PrintPageVerticalMargin, "0.25"), out dVal))
                 {
                     return dVal;
                 }
@@ -162,6 +176,12 @@ namespace CardMaker.Data
         {
             get { return s_zIniManager.GetValue(IniSettings.DefineTranslatePrimitiveCharacters, bool.FalseString).Equals(bool.TrueString); }
             set { s_zIniManager.SetValue(IniSettings.DefineTranslatePrimitiveCharacters, value.ToString()); }
+        }
+
+        public static bool LogInceptTranslation
+        {
+            get { return s_zIniManager.GetValue(IniSettings.LogInceptTranslation, bool.FalseString).Equals(bool.TrueString); }
+            set { s_zIniManager.SetValue(IniSettings.LogInceptTranslation, value.ToString()); }
         }
     }
 }

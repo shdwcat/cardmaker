@@ -1,7 +1,7 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 // The MIT License (MIT)
 //
-// Copyright (c) 2015 Tim Stair
+// Copyright (c) 2018 Tim Stair
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -27,22 +27,37 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using CardMaker.XML;
+using Support.Util;
 
 namespace CardMaker.Card.FormattedText.Markup
 {
-    public class BackgroundColorMarkup : MarkupBase
+    public class BackgroundColorMarkup : MarkupValueBase
     {
         private List<RectangleF> m_listRectangles;
-        private readonly Brush m_zBrush = Brushes.Black;
+        private Brush m_zBrush = Brushes.Black;
+        private float m_fAdditionalPixels;
+        private float m_fXOffset;
+        private float m_fYOffset;
 
-        public BackgroundColorMarkup(string sVariable)
-        {
-            m_zBrush = new SolidBrush(ProjectLayoutElement.TranslateColorString(sVariable));
-        }
+        public BackgroundColorMarkup(string sVariable) : base(sVariable) { }
 
         public override bool ProcessMarkup(ProjectLayoutElement zElement, FormattedTextData zData, FormattedTextProcessData zProcessData,
             Graphics zGraphics)
         {
+            var arrayComponents = m_sVariable.Split(new char[] { ';' });
+
+            if (arrayComponents.Length > 0)
+            {
+                m_zBrush = new SolidBrush(ProjectLayoutElement.TranslateColorString(arrayComponents[0], zElement.opacity));
+
+                if (arrayComponents.Length > 1)
+                {
+                    ParseUtil.ParseFloat(arrayComponents[1], out m_fAdditionalPixels);
+                }
+            }
+
+            m_fXOffset = zProcessData.CurrentXOffset;
+            m_fYOffset = zProcessData.CurrentYOffset;
             return true;
         }
 
@@ -72,9 +87,10 @@ namespace CardMaker.Card.FormattedText.Markup
             zGraphics.SmoothingMode = SmoothingMode.None;
             foreach (var rect in m_listRectangles)
             {
-                var rectAdjusted = rect;
+                var rectAdjusted = new RectangleF(rect.X + m_fXOffset, rect.Y + m_fYOffset, rect.Width, rect.Height + m_fAdditionalPixels);
+
                 // do not draw any rectangles outside of the element
-                rectAdjusted.Height = Math.Min(rect.Bottom - rect.Top, zElement.y + zElement.height);
+                rectAdjusted.Height = Math.Min(rectAdjusted.Bottom - rectAdjusted.Top, zElement.y + zElement.height);
                 zGraphics.FillRectangle(m_zBrush, rectAdjusted);
             }
             zGraphics.SmoothingMode = ePreviousSmoothingMode;

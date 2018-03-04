@@ -1,7 +1,7 @@
 ﻿////////////////////////////////////////////////////////////////////////////////
 // The MIT License (MIT)
 //
-// Copyright (c) 2015 Tim Stair
+// Copyright (c) 2018 Tim Stair
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
 // SOFTWARE.
 ////////////////////////////////////////////////////////////////////////////////
 
+using System;
 using System.Drawing;
 using CardMaker.Card.FormattedText.Markup;
 using CardMaker.XML;
@@ -41,6 +42,9 @@ namespace CardMaker.Card.FormattedText
         public float CurrentY { get; set; }
         public float CurrentYOffset { get; set; }
         public float CurrentXOffset { get; set; }
+
+        public float CurrentLineHeight { get; set; }
+        public StringAlignment CurrentStringAlignment { get; set; }
 
         public int CurrentLine { get; private set; }
 
@@ -62,7 +66,7 @@ namespace CardMaker.Card.FormattedText
 
             // NOTE the element word space is ignored! (is that a problem?)
             FontSpaceWidth = rectWithSpace.Width - rectWithoutSpace.Width;
-            FontSpaceHeight = rectWithSpace.Height;
+            FontSpaceHeight = Math.Max(rectWithSpace.Height, FontHeight);
         }
 
         public void AddFontStyle(FontStyle eStyle, Graphics zGraphics)
@@ -80,7 +84,7 @@ namespace CardMaker.Card.FormattedText
         {
             CurrentLine++;
             CurrentX = 0;
-            CurrentY += zElement.lineheight;            
+            CurrentY += CurrentLineHeight;
         }
     }
 }
